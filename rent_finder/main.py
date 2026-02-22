@@ -23,6 +23,7 @@ import time
 import uuid
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 
 import click
 
@@ -65,7 +66,7 @@ def _format_duration(seconds: float) -> str:
     return f"{s}s"
 
 
-def _rebuild_enriched(row: dict) -> EnrichedListing:
+def _rebuild_enriched(row: dict[str, Any]) -> EnrichedListing:
     """
     Reconstruct an EnrichedListing from a get_unnotified_passes() DB row.
 
@@ -88,7 +89,7 @@ def _rebuild_enriched(row: dict) -> EnrichedListing:
     )
 
 
-def _rebuild_filter_result(row: dict) -> FilterResult:
+def _rebuild_filter_result(row: dict[str, Any]) -> FilterResult:
     """
     Reconstruct a FilterResult from a get_unnotified_passes() DB row.
 
@@ -279,7 +280,7 @@ def run_pipeline(
                     headless=headless,
                     min_delay_s=settings.scraper_min_delay_seconds,
                     max_delay_s=settings.scraper_max_delay_seconds,
-                    timeout_ms=settings.playwright_page_timeout_ms,
+                    page_timeout_ms=settings.playwright_page_timeout_ms,
                 )
             )
         except CookieExpiredError as exc:
@@ -587,7 +588,7 @@ def main(
     delivers matching listings to Telegram.
     """
     try:
-        settings = Settings()
+        settings = Settings()  # type: ignore[call-arg]
     except Exception as exc:
         click.echo(f"ERROR: Configuration invalid — {exc}", err=True)
         sys.exit(1)

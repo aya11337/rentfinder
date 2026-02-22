@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import json
 import time
-from typing import Literal
+from typing import Any, Literal
 
 import openai
 from pydantic import BaseModel, Field, field_validator
@@ -150,8 +150,8 @@ def filter_listing(
     client = openai.OpenAI(api_key=api_key)
     messages = build_messages(listing)
 
-    def _call(msgs: list[dict]) -> str:
-        response = client.chat.completions.create(
+    def _call(msgs: list[dict[str, Any]]) -> str:
+        response = client.chat.completions.create(  # type: ignore[call-overload]
             model=model,
             messages=msgs,
             temperature=0.0,

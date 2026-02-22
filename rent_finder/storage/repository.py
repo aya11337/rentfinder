@@ -14,6 +14,7 @@ from __future__ import annotations
 import json
 import sqlite3
 from datetime import UTC, datetime
+from typing import Any
 
 from rent_finder.utils.logging_config import get_logger
 
@@ -73,7 +74,7 @@ def insert_listing(
     bathrooms: str | None = None,
     image_url: str | None = None,
     scraped_at: str | None = None,
-    extra_fields: dict | None = None,
+    extra_fields: dict[str, Any] | None = None,
     run_id: str | None = None,
 ) -> bool:
     """
@@ -249,7 +250,7 @@ def mark_notify_failed(conn: sqlite3.Connection, listing_id: str) -> None:
     log.debug("notify_failed_marked", listing_id=listing_id)
 
 
-def get_unnotified_passes(conn: sqlite3.Connection) -> list[dict]:
+def get_unnotified_passes(conn: sqlite3.Connection) -> list[dict[str, Any]]:
     """
     Return listings that matched (filter_passed) but were never notified,
     or where Telegram delivery failed on a previous run.

@@ -18,6 +18,7 @@ import logging
 import logging.handlers
 import sys
 from pathlib import Path
+from typing import cast
 
 import structlog
 
@@ -114,4 +115,4 @@ def configure_logging(
 
 def get_logger(name: str = __name__) -> structlog.stdlib.BoundLogger:
     """Return a bound structlog logger for the given module name."""
-    return structlog.get_logger(name)
+    return cast(structlog.stdlib.BoundLogger, structlog.get_logger(name))

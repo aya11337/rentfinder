@@ -8,6 +8,7 @@ EnrichedListing: RawListing + description scraped by Playwright. Passed to OpenA
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import Any
 
 
 @dataclass(frozen=True)
@@ -31,7 +32,7 @@ class RawListing:
     bathrooms: str | None = None
     image_url: str | None = None
     scraped_at: str | None = None
-    extra_fields: dict = field(default_factory=dict)
+    extra_fields: dict[str, Any] = field(default_factory=dict)
 
     def __str__(self) -> str:
         price = f"${self.price_cents // 100:,}" if self.price_cents else self.price_raw or "?"
@@ -59,7 +60,7 @@ class EnrichedListing:
     bathrooms: str | None
     image_url: str | None
     scraped_at: str | None
-    extra_fields: dict
+    extra_fields: dict[str, Any]
     description: str | None
     description_source: str
 

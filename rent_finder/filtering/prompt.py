@@ -17,6 +17,8 @@ Criteria used (updated from original plan):
 
 from __future__ import annotations
 
+from typing import Any
+
 from rent_finder.ingestion.models import EnrichedListing
 
 # ---------------------------------------------------------------------------
@@ -197,7 +199,7 @@ def build_user_message(listing: EnrichedListing) -> str:
     return "\n".join(lines)
 
 
-def build_messages(listing: EnrichedListing) -> list[dict]:
+def build_messages(listing: EnrichedListing) -> list[dict[str, Any]]:
     """Return the full messages list for the OpenAI chat completions API."""
     return [
         {"role": "system", "content": SYSTEM_PROMPT},

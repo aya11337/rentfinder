@@ -19,6 +19,7 @@ from __future__ import annotations
 import json
 import time
 from pathlib import Path
+from typing import Any
 
 from playwright.async_api import Browser, BrowserContext, Playwright
 
@@ -39,7 +40,7 @@ class CookieExpiredError(Exception):
 # Cookie utilities
 # ---------------------------------------------------------------------------
 
-def load_cookies(path: str | Path) -> list[dict]:
+def load_cookies(path: str | Path) -> list[dict[str, Any]]:
     """
     Load and normalise cookies from a JSON file.
 
@@ -62,7 +63,7 @@ def load_cookies(path: str | Path) -> list[dict]:
         )
 
     try:
-        raw: list[dict] = json.loads(path.read_text(encoding="utf-8"))
+        raw: list[dict[str, Any]] = json.loads(path.read_text(encoding="utf-8"))
     except json.JSONDecodeError as exc:
         raise ValueError(f"Cookie file is not valid JSON: {path}: {exc}") from exc
 
@@ -71,7 +72,7 @@ def load_cookies(path: str | Path) -> list[dict]:
 
     normalised = []
     for c in raw:
-        cookie: dict = {
+        cookie: dict[str, Any] = {
             "name": c["name"],
             "value": c["value"],
             "domain": c.get("domain", ".facebook.com"),
@@ -99,7 +100,7 @@ def load_cookies(path: str | Path) -> list[dict]:
     return normalised
 
 
-def validate_cookies(cookies: list[dict]) -> None:
+def validate_cookies(cookies: list[dict[str, Any]]) -> None:
     """
     Assert that the required Facebook session cookies are present.
 
@@ -114,7 +115,7 @@ def validate_cookies(cookies: list[dict]) -> None:
         )
 
 
-def check_expiry_warnings(cookies: list[dict]) -> list[str]:
+def check_expiry_warnings(cookies: list[dict[str, Any]]) -> list[str]:
     """
     Return names of cookies that expire within 7 days.
 
@@ -182,7 +183,7 @@ async def create_context(
         timezone_id="America/Toronto",
     )
 
-    await context.add_cookies(cookies)
+    await context.add_cookies(cookies)  # type: ignore[arg-type]
     log.debug("cookies_injected", count=len(cookies))
 
     # Health-check navigation: confirm the session is still active

@@ -26,6 +26,8 @@ import json
 import re
 from pathlib import Path
 
+from typing import Any
+
 from rent_finder.ingestion.models import RawListing
 from rent_finder.utils.logging_config import get_logger
 
@@ -97,7 +99,7 @@ def _parse_bed_bath(custom_title: str | None) -> tuple[str | None, str | None]:
     return bedrooms, bathrooms
 
 
-def _build_extra_fields(record: dict) -> dict:
+def _build_extra_fields(record: dict[str, Any]) -> dict[str, Any]:
     """Return a dict of all fields not explicitly mapped to RawListing attributes."""
     return {k: v for k, v in record.items() if k not in _MAPPED_KEYS}
 
@@ -122,7 +124,7 @@ def parse_listings(path: str | Path) -> list[RawListing]:
 
     raw_text = path.read_text(encoding="utf-8")
     try:
-        records: list[dict] = json.loads(raw_text)
+        records: list[dict[str, Any]] = json.loads(raw_text)
     except json.JSONDecodeError as exc:
         raise ValueError(f"Invalid JSON in dataset file {path}: {exc}") from exc
 

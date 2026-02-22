@@ -137,8 +137,8 @@ async def _try_quaternary(page: Page) -> str | None:
         content = await page.evaluate(
             "() => document.querySelector('meta[property=\"og:description\"]')?.content"
         )
-        if content and len(content.strip()) >= _MIN_DESC_CHARS:
-            return content.strip()
+        if content and len(str(content).strip()) >= _MIN_DESC_CHARS:
+            return str(content).strip()
     except Exception:
         pass
     return None
