@@ -33,9 +33,9 @@ def tmp_db_conn() -> sqlite3.Connection:
 
 
 @pytest.fixture
-def sample_csv_path() -> Path:
-    """Path to the sample CSV fixture file."""
-    return Path(__file__).parent / "fixtures" / "sample_listings.csv"
+def sample_json_path() -> Path:
+    """Path to the sample Apify JSON fixture file."""
+    return Path(__file__).parent / "fixtures" / "sample_listings.json"
 
 
 @pytest.fixture
