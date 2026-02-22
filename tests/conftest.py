@@ -48,7 +48,7 @@ def mock_settings():
     """
     s = MagicMock()
     s.database_path = ":memory:"
-    s.csv_input_path = "input/marketplace_export.csv"
+    s.json_input_path = "input/marketplace_export.json"
     s.facebook_cookies_path = "tests/fixtures/sample_cookies.json"
     s.scraper_min_delay_seconds = 0.01
     s.scraper_max_delay_seconds = 0.02
@@ -58,9 +58,10 @@ def mock_settings():
     s.openai_api_key = "sk-test-fake-key-for-unit-tests"
     s.openai_model = "gpt-4o-mini"
     s.openai_max_tokens = 600
-    s.criteria_max_rent_cad = 2400
-    s.criteria_require_pet_friendly = True
+    s.criteria_max_rent_cad = 1600
+    s.criteria_require_pet_friendly = False
     s.criteria_min_score = 12
+    s.criteria_move_in_date = "2026-04-01"
     s.telegram_bot_token = "123456789:FAKE_TOKEN_FOR_TESTS"
     s.telegram_chat_id = "999999999"
     s.telegram_send_summary = True

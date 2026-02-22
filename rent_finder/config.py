@@ -24,7 +24,7 @@ class Settings(BaseSettings):
     database_path: str = Field(default="data/rent_finder.db")
 
     # ── Input ─────────────────────────────────────────────────────────────────
-    csv_input_path: str = Field(default="input/marketplace_export.csv")
+    json_input_path: str = Field(default="input/marketplace_export.json")
 
     # ── Facebook / Playwright ─────────────────────────────────────────────────
     facebook_cookies_path: str = Field(default="data/cookies.json")
@@ -40,9 +40,10 @@ class Settings(BaseSettings):
     openai_max_tokens: int = Field(default=600, ge=100, le=4096)
 
     # ── Rental Criteria ───────────────────────────────────────────────────────
-    criteria_max_rent_cad: int = Field(default=2400, ge=500, le=10000)
-    criteria_require_pet_friendly: bool = Field(default=True)
+    criteria_max_rent_cad: int = Field(default=1600, ge=500, le=10000)
+    criteria_require_pet_friendly: bool = Field(default=False)
     criteria_min_score: int = Field(default=12, ge=0, le=24)
+    criteria_move_in_date: str = Field(default="2026-04-01")
 
     # ── Telegram ──────────────────────────────────────────────────────────────
     telegram_bot_token: str = Field(default="")
@@ -90,7 +91,7 @@ class Settings(BaseSettings):
         """Return config dict safe for logging (secrets masked)."""
         return {
             "database_path": self.database_path,
-            "csv_input_path": self.csv_input_path,
+            "json_input_path": self.json_input_path,
             "openai_model": self.openai_model,
             "openai_api_key": self.openai_api_key[:12] + "...",
             "playwright_headless": self.playwright_headless,
