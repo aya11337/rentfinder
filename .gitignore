@@ -1,0 +1,43 @@
+# === SECURITY — NEVER COMMIT ===================================================
+.env
+# Facebook session cookie — equivalent to account password. Exposure = compromise.
+data/cookies.json
+# Catch-all for any cookie export file in the project root
+cookies*.json
+# Allow the fake test cookies
+!tests/fixtures/sample_cookies.json
+
+# === DATA — POTENTIALLY SENSITIVE ==============================================
+input/*.csv
+data/*.db
+data/*.db-shm
+data/*.db-wal
+data/*.bak
+
+# === LOGS ======================================================================
+logs/*.jsonl
+logs/*.log
+logs/*.json
+
+# === PYTHON ====================================================================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+env/
+.eggs/
+*.egg-info/
+dist/
+build/
+
+# === TOOLS =====================================================================
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+.DS_Store
+Thumbs.db

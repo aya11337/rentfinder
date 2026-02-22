@@ -1,0 +1,9 @@
+url,title,price,location,scraped_at,bedrooms,bathrooms,image_url
+https://www.facebook.com/marketplace/item/111222333444555/,Bright 1BR near Leslieville - Pet Friendly!,$1950 / month,Leslieville Toronto,2026-02-22T10:00:00Z,1,1,https://example.com/img1.jpg
+https://www.facebook.com/marketplace/item/222333444555666/,Cozy Studio Downtown,$1350 / month,Downtown Core Toronto,2026-02-22T10:05:00Z,,1,
+https://www.facebook.com/marketplace/item/333444555666777/,Luxury 2BR Condo - No Pets,$2800 / month,King West Toronto,2026-02-22T10:10:00Z,2,2,https://example.com/img3.jpg
+https://www.facebook.com/marketplace/item/444555666777888/,1+Den Queen East TTC Access,$1850 / month,Queen East Toronto,2026-02-22T10:15:00Z,1,1,https://example.com/img4.jpg
+https://www.facebook.com/marketplace/item/555666777888999/,Shared Room King Street,,King Street Toronto,2026-02-22T10:20:00Z,,1,
+,Missing URL listing,$1500 / month,Riverside Toronto,2026-02-22T10:25:00Z,1,1,
+https://www.facebook.com/marketplace/item/666777888999000/,Basement Apt Danforth,$1600 / month,Danforth Toronto,2026-02-22T10:30:00Z,1,1,https://example.com/img7.jpg
+https://not-facebook.com/listing/123,Non-FB URL listing,$1700 / month,Somewhere Toronto,2026-02-22T10:35:00Z,1,1,

@@ -1,0 +1,40 @@
+[project]
+name = "rent-finder"
+version = "1.0.0"
+description = "Personal automated rental listing pipeline for Toronto Facebook Marketplace"
+requires-python = ">=3.11"
+readme = "README.md"
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+select = ["E", "F", "I", "B", "UP"]
+ignore = [
+    "B008",  # do not perform function calls in default arguments (click uses this pattern)
+]
+
+[tool.ruff.isort]
+known-first-party = ["rent_finder"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = false
+ignore_missing_imports = true
+warn_unused_ignores = true
+warn_return_any = false
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = ["-v", "--tb=short"]
+
+[tool.coverage.run]
+source = ["rent_finder"]
+omit = ["tests/*"]
+
+[tool.coverage.report]
+skip_empty = true
+show_missing = true

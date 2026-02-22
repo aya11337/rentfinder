@@ -1,0 +1,33 @@
+repos:
+  - repo: local
+    hooks:
+      - id: block-cookies
+        name: Block accidental cookie file commit
+        language: system
+        entry: >-
+          bash -c '
+            staged=$(git diff --cached --name-only);
+            if echo "$staged" | grep -qE "cookies.*\.json$" && ! echo "$staged" | grep -q "tests/fixtures/"; then
+              echo "ERROR: Refusing to commit a cookies file. This is equivalent to committing your Facebook password.";
+              exit 1;
+            fi
+          '
+        always_run: true
+
+      - id: block-env
+        name: Block .env commit
+        language: system
+        entry: >-
+          bash -c '
+            if git diff --cached --name-only | grep -qE "^\.env$"; then
+              echo "ERROR: Refusing to commit .env file. Use .env.example for documentation.";
+              exit 1;
+            fi
+          '
+        always_run: true
+
+  - repo: https://github.com/Yelp/detect-secrets
+    rev: v1.4.0
+    hooks:
+      - id: detect-secrets
+        args: ['--baseline', '.secrets.baseline']

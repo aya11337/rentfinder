@@ -1,0 +1,42 @@
+[
+  {
+    "name": "c_user",
+    "value": "100000000000001",
+    "domain": ".facebook.com",
+    "path": "/",
+    "httpOnly": false,
+    "secure": true,
+    "sameSite": "None",
+    "expirationDate": 9999999999
+  },
+  {
+    "name": "xs",
+    "value": "fakesessiontoken123abc",
+    "domain": ".facebook.com",
+    "path": "/",
+    "httpOnly": true,
+    "secure": true,
+    "sameSite": "None",
+    "expirationDate": 9999999999
+  },
+  {
+    "name": "datr",
+    "value": "fakedatrtoken456def",
+    "domain": ".facebook.com",
+    "path": "/",
+    "httpOnly": false,
+    "secure": true,
+    "sameSite": "None",
+    "expirationDate": 9999999999
+  },
+  {
+    "name": "fr",
+    "value": "fakefrtoken789ghi",
+    "domain": ".facebook.com",
+    "path": "/",
+    "httpOnly": false,
+    "secure": true,
+    "sameSite": "None",
+    "expirationDate": 9999999999
+  }
+]

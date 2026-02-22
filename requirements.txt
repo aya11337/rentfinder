@@ -1,0 +1,45 @@
+# requirements.txt
+# Python 3.11+ required
+# Install: pip install -r requirements.txt
+# After install: playwright install chromium
+
+# ── Data validation and configuration ─────────────────────────────────────────
+pydantic==2.7.1           # Core data model validation for RawListing, EnrichedListing, FilterResult
+pydantic-settings==2.3.4  # .env file loading with type coercion; wraps pydantic BaseSettings
+
+# ── Async browser automation ───────────────────────────────────────────────────
+playwright==1.44.0         # Chromium browser control for Facebook scraping with cookie injection
+
+# ── OpenAI API ─────────────────────────────────────────────────────────────────
+openai==1.30.5             # Official OpenAI client; GPT-4o-mini filtering with JSON mode
+
+# ── HTTP client (Telegram Bot API) ────────────────────────────────────────────
+httpx==0.27.0              # Sync HTTP client for Telegram Bot API calls
+
+# ── Structured logging ─────────────────────────────────────────────────────────
+structlog==24.2.0          # Structured log output: JSON to file, pretty-printed to console
+
+# ── CLI ────────────────────────────────────────────────────────────────────────
+click==8.1.7               # CLI: --csv, --dry-run, --headed, --health-check, --daemon, --once
+
+# ── Task scheduling (daemon mode) ─────────────────────────────────────────────
+APScheduler==3.10.4        # Cron-style scheduling for --daemon mode; asyncio-compatible
+
+# ── Retry logic ────────────────────────────────────────────────────────────────
+tenacity==8.3.0            # Exponential backoff retry decorator for OpenAI and Telegram calls
+
+# ── Environment file loading ───────────────────────────────────────────────────
+python-dotenv==1.0.1       # Required by pydantic-settings internally for .env file parsing
+
+# ── Testing ────────────────────────────────────────────────────────────────────
+pytest==8.2.1              # Test runner for all unit and integration tests
+pytest-asyncio==0.23.7     # Async test support; required for Playwright async tests
+pytest-mock==3.14.0        # Clean mock fixtures; used in every test file
+pytest-cov==5.0.0          # Coverage reporting; target >= 80% for all modules
+
+# ── Code quality ───────────────────────────────────────────────────────────────
+ruff==0.4.5                # Linter and formatter: replaces flake8, isort, black in one tool
+mypy==1.10.0               # Static type checking
+
+# ── Security (pre-commit) ──────────────────────────────────────────────────────
+detect-secrets==1.4.0      # Scans staged files for accidentally committed secrets
