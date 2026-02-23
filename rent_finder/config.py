@@ -75,6 +75,12 @@ class Settings(BaseSettings):
     log_level_file: str = Field(default="DEBUG")
     log_level_console: str = Field(default="INFO")
 
+    @field_validator("openai_api_key", "telegram_bot_token", "telegram_chat_id")
+    @classmethod
+    def strip_secret(cls, v: str) -> str:
+        """Strip accidental whitespace/newlines from secrets read from env or .env file."""
+        return v.strip()
+
     @field_validator("scraper_max_delay_seconds")
     @classmethod
     def max_delay_must_exceed_min(cls, v: float, info: object) -> float:

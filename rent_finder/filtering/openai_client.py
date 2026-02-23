@@ -147,7 +147,7 @@ def filter_listing(
     Raises:
         OpenAIAuthError: If OpenAI rejects the API key (pipeline must abort).
     """
-    client = openai.OpenAI(api_key=api_key)
+    client = openai.OpenAI(api_key=api_key.strip())
     messages = build_messages(listing)
 
     def _call(msgs: list[dict[str, Any]]) -> str:
