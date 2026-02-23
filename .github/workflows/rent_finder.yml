@@ -40,7 +40,14 @@ jobs:
       - name: Decode Facebook cookies from secret
         run: |
           mkdir -p data
-          echo "${{ secrets.FB_COOKIES_B64 }}" | tr -d ' \r\n' | base64 -d > data/cookies.json
+          echo "${{ secrets.FB_COOKIES_B64 }}" | tr -d ' \r\n' | base64 -d --ignore-garbage > data/cookies.json
+
+      - name: Sanitize secrets into environment
+        run: |
+          # Strip any accidental newlines/spaces from secrets before the pipeline uses them
+          echo "OPENAI_API_KEY=$(echo '${{ secrets.OPENAI_API_KEY }}' | tr -d '\n\r ')" >> $GITHUB_ENV
+          echo "TELEGRAM_BOT_TOKEN=$(echo '${{ secrets.TELEGRAM_BOT_TOKEN }}' | tr -d '\n\r ')" >> $GITHUB_ENV
+          echo "TELEGRAM_CHAT_ID=$(echo '${{ secrets.TELEGRAM_CHAT_ID }}' | tr -d '\n\r ')" >> $GITHUB_ENV
 
       - name: Run rent-finder pipeline (live scrape)
         env:
@@ -64,7 +71,7 @@ jobs:
           MARKETPLACE_MAX_DELAY_SECONDS: "10"
           MARKETPLACE_MAX_AGE_HOURS: "8"
           # ── OpenAI ────────────────────────────────────────────────────────────
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          # OPENAI_API_KEY is set by the "Sanitize secrets" step via $GITHUB_ENV
           OPENAI_MODEL: gpt-4o-mini
           OPENAI_MAX_TOKENS: "600"
           # ── Rental Criteria ───────────────────────────────────────────────────
@@ -73,8 +80,7 @@ jobs:
           CRITERIA_MIN_SCORE: "12"
           CRITERIA_MOVE_IN_DATE: "2026-04-01"
           # ── Telegram ─────────────────────────────────────────────────────────
-          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          # TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID set by "Sanitize secrets" step
           TELEGRAM_SEND_SUMMARY: "true"
           TELEGRAM_REQUEST_TIMEOUT_SECONDS: "15"
           # ── Logging ───────────────────────────────────────────────────────────
