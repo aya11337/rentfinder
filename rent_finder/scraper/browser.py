@@ -90,9 +90,11 @@ def load_cookies(path: str | Path) -> list[dict[str, Any]]:
             except (ValueError, TypeError):
                 pass
 
-        same_site = c.get("sameSite", "Lax") or "Lax"
-        # Playwright expects title-case: "Strict", "Lax", "None"
-        cookie["sameSite"] = same_site.capitalize()
+        same_site = c.get("sameSite") or "Lax"
+        # Playwright expects exactly: "Strict", "Lax", or "None"
+        # Cookie-Editor exports "no_restriction" to mean SameSite=None
+        _same_site_map = {"no_restriction": "None", "strict": "Strict", "lax": "Lax", "none": "None"}
+        cookie["sameSite"] = _same_site_map.get(same_site.lower(), "Lax")
 
         normalised.append(cookie)
 
