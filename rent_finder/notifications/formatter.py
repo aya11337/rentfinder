@@ -118,6 +118,68 @@ def format_listing_message(listing: EnrichedListing, result: FilterResult) -> st
 
 
 # ---------------------------------------------------------------------------
+# Rejected listing message (OpenAI REJECT — for review)
+# ---------------------------------------------------------------------------
+
+_DESC_PREVIEW_CHARS = 600
+
+
+def format_rejected_message(listing: EnrichedListing, result: FilterResult) -> str:
+    """
+    Build a compact MarkdownV2 Telegram message for an OpenAI-rejected listing.
+
+    Shows rejection reasons, GPT reasoning, and a preview of the scraped
+    description so the user can verify the decision is correct.
+    Truncated to Telegram's 4096-character limit.
+    """
+    title = escape_md(listing.title or "Untitled Listing")
+    price = escape_md(listing.price_raw or "Price not specified")
+    location = escape_md(listing.location_raw or "Location not specified")
+    reasoning = escape_md(result.reasoning or "No reasoning provided")
+
+    reasons_text = (
+        escape_md(", ".join(result.rejection_reasons))
+        if result.rejection_reasons
+        else escape_md("score too low")
+    )
+
+    desc_preview = ""
+    if listing.description:
+        raw_preview = listing.description[:_DESC_PREVIEW_CHARS]
+        if len(listing.description) > _DESC_PREVIEW_CHARS:
+            raw_preview += "…"
+        desc_preview = escape_md(raw_preview)
+
+    lines = [
+        f"❌ *AI Rejected* \\- Score: {result.total_score}/24",
+        "",
+        f"*{title}*",
+        "",
+        f"💰 *Price:* {price}",
+        f"📍 *Location:* {location}",
+        "",
+        f"🚫 *Reasons:* {reasons_text}",
+        "",
+        "📝 *AI Reasoning:*",
+        f"_{reasoning}_",
+    ]
+
+    if desc_preview:
+        lines += [
+            "",
+            "📄 *Scraped Description:*",
+            f"_{desc_preview}_",
+        ]
+    else:
+        lines += ["", "⚠️ _No description was scraped_"]
+
+    lines += ["", f"🔗 [View on Facebook]({listing.url})"]
+
+    message = "\n".join(lines)
+    return message[:_TELEGRAM_MAX_CHARS]
+
+
+# ---------------------------------------------------------------------------
 # End-of-run summary message
 # ---------------------------------------------------------------------------
 

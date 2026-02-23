@@ -38,6 +38,7 @@ from rent_finder.ingestion.json_reader import parse_listings
 from rent_finder.ingestion.models import EnrichedListing, RawListing
 from rent_finder.notifications.telegram import (
     send_listing,
+    send_rejected_listing,
     send_summary,
     send_text_alert,
 )
@@ -471,6 +472,17 @@ def run_pipeline(
                     )
                 except Exception:
                     pass
+
+            # Send the rejected listing to Telegram for review
+            if settings.telegram_configured():
+                send_rejected_listing(
+                    enriched,
+                    result,
+                    bot_token=settings.telegram_bot_token,
+                    chat_id=settings.telegram_chat_id,
+                    dry_run=dry_run,
+                    timeout_s=settings.telegram_request_timeout_seconds,
+                )
 
     # ── 9. End-of-run summary ─────────────────────────────────────────────────
     duration_str = _format_duration(time.monotonic() - start_time)

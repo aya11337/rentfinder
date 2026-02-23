@@ -25,6 +25,7 @@ from rent_finder.filtering.openai_client import FilterResult
 from rent_finder.ingestion.models import EnrichedListing
 from rent_finder.notifications.formatter import (
     format_listing_message,
+    format_rejected_message,
     format_summary_message,
 )
 from rent_finder.utils.logging_config import get_logger
@@ -157,6 +158,55 @@ def send_listing(
             return True
 
     log.error("notification_failed", listing_id=listing.listing_id)
+    return False
+
+
+def send_rejected_listing(
+    listing: EnrichedListing,
+    result: FilterResult,
+    *,
+    bot_token: str,
+    chat_id: str,
+    dry_run: bool = False,
+    timeout_s: int = 15,
+) -> bool:
+    """
+    Send an AI-rejected listing to Telegram so the user can review the decision.
+
+    Shows rejection reasons, GPT reasoning, and a preview of the scraped
+    description. In dry-run mode: logs at INFO without making an HTTP call.
+
+    Returns True if sent (or dry-run), False on delivery failure.
+    """
+    if dry_run:
+        log.info(
+            "dry_run_rejected_notify_skipped",
+            listing_id=listing.listing_id,
+            score=result.total_score,
+        )
+        return True
+
+    message = format_rejected_message(listing, result)
+
+    success = _send_text(bot_token, chat_id, message, timeout_s=timeout_s)
+    if success:
+        log.info(
+            "rejected_notification_sent",
+            listing_id=listing.listing_id,
+            score=result.total_score,
+            chars=len(message),
+        )
+        return True
+
+    if len(message) > _MAX_TRUNCATED:
+        truncated = message[:_MAX_TRUNCATED] + "\n_\\[message truncated\\]_"
+        log.warning("telegram_truncating_rejected", original_chars=len(message))
+        success = _send_text(bot_token, chat_id, truncated, timeout_s=timeout_s)
+        if success:
+            log.info("rejected_notification_sent_truncated", listing_id=listing.listing_id)
+            return True
+
+    log.error("rejected_notification_failed", listing_id=listing.listing_id)
     return False
 
 
