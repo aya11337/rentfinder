@@ -44,10 +44,21 @@ jobs:
 
       - name: Sanitize secrets into environment
         run: |
-          # Strip any accidental newlines/spaces from secrets before the pipeline uses them
-          echo "OPENAI_API_KEY=$(echo '${{ secrets.OPENAI_API_KEY }}' | tr -d '\n\r ')" >> $GITHUB_ENV
-          echo "TELEGRAM_BOT_TOKEN=$(echo '${{ secrets.TELEGRAM_BOT_TOKEN }}' | tr -d '\n\r ')" >> $GITHUB_ENV
-          echo "TELEGRAM_CHAT_ID=$(echo '${{ secrets.TELEGRAM_CHAT_ID }}' | tr -d '\n\r ')" >> $GITHUB_ENV
+          # printf '%s' never adds a trailing newline (unlike echo).
+          # tr -d removes any embedded newlines/carriage-returns/tabs/spaces.
+          # Store in shell vars first so we can verify before writing to $GITHUB_ENV.
+          CLEAN_OPENAI=$(printf '%s' '${{ secrets.OPENAI_API_KEY }}'     | tr -d '\n\r\t ')
+          CLEAN_TG_BOT=$(printf '%s' '${{ secrets.TELEGRAM_BOT_TOKEN }}' | tr -d '\n\r\t ')
+          CLEAN_TG_ID=$(printf '%s'  '${{ secrets.TELEGRAM_CHAT_ID }}'   | tr -d '\n\r\t ')
+
+          # Fail fast if any secret is missing rather than letting the pipeline fail later
+          [ -n "$CLEAN_OPENAI" ]    || { echo "ERROR: OPENAI_API_KEY secret is empty or missing";    exit 1; }
+          [ -n "$CLEAN_TG_BOT" ]    || { echo "ERROR: TELEGRAM_BOT_TOKEN secret is empty or missing"; exit 1; }
+          [ -n "$CLEAN_TG_ID" ]     || { echo "ERROR: TELEGRAM_CHAT_ID secret is empty or missing";   exit 1; }
+
+          echo "OPENAI_API_KEY=$CLEAN_OPENAI"       >> $GITHUB_ENV
+          echo "TELEGRAM_BOT_TOKEN=$CLEAN_TG_BOT"   >> $GITHUB_ENV
+          echo "TELEGRAM_CHAT_ID=$CLEAN_TG_ID"      >> $GITHUB_ENV
 
       - name: Run rent-finder pipeline (live scrape)
         env:
