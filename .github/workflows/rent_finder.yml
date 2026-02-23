@@ -37,48 +37,50 @@ jobs:
           restore-keys: |
             rentfinder-db-${{ runner.os }}-
 
-      - name: Write .env from secrets
-        run: |
-          cat > .env << 'EOF'
-          DATABASE_PATH=data/rent_finder.db
-          FACEBOOK_COOKIES_PATH=data/cookies.json
-          SCRAPER_MIN_DELAY_SECONDS=4
-          SCRAPER_MAX_DELAY_SECONDS=8
-          SCRAPER_MAX_LISTINGS_PER_RUN=30
-          PLAYWRIGHT_HEADLESS=true
-          PLAYWRIGHT_PAGE_TIMEOUT_MS=30000
-          MARKETPLACE_CITY=toronto
-          MARKETPLACE_SEARCH_QUERY=apartment for rent
-          MARKETPLACE_MIN_PRICE=1000
-          MARKETPLACE_DAYS_SINCE_LISTED=1
-          MARKETPLACE_MAX_SCROLL_PAGES=10
-          MARKETPLACE_MAX_STALE_SCROLLS=3
-          MARKETPLACE_MIN_DELAY_SECONDS=6
-          MARKETPLACE_MAX_DELAY_SECONDS=10
-          MARKETPLACE_MAX_AGE_HOURS=8
-          OPENAI_MODEL=gpt-4o-mini
-          OPENAI_MAX_TOKENS=600
-          CRITERIA_MAX_RENT_CAD=1600
-          CRITERIA_REQUIRE_PET_FRIENDLY=false
-          CRITERIA_MIN_SCORE=12
-          CRITERIA_MOVE_IN_DATE=2026-04-01
-          TELEGRAM_SEND_SUMMARY=true
-          TELEGRAM_REQUEST_TIMEOUT_SECONDS=15
-          LOG_DIR=logs
-          LOG_LEVEL_FILE=DEBUG
-          LOG_LEVEL_CONSOLE=INFO
-          EOF
-          # Append secrets (cannot use heredoc for secrets — use echo append)
-          echo "OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}" >> .env
-          echo "TELEGRAM_BOT_TOKEN=${{ secrets.TELEGRAM_BOT_TOKEN }}" >> .env
-          echo "TELEGRAM_CHAT_ID=${{ secrets.TELEGRAM_CHAT_ID }}" >> .env
-
       - name: Decode Facebook cookies from secret
         run: |
           mkdir -p data
-          echo "${{ secrets.FB_COOKIES_B64 }}" | base64 --decode > data/cookies.json
+          echo "${{ secrets.FB_COOKIES_B64 }}" | tr -d ' \r\n' | base64 -d > data/cookies.json
 
       - name: Run rent-finder pipeline (live scrape)
+        env:
+          # ── Database ──────────────────────────────────────────────────────────
+          DATABASE_PATH: data/rent_finder.db
+          FACEBOOK_COOKIES_PATH: data/cookies.json
+          # ── Scraper ───────────────────────────────────────────────────────────
+          SCRAPER_MIN_DELAY_SECONDS: "4"
+          SCRAPER_MAX_DELAY_SECONDS: "8"
+          SCRAPER_MAX_LISTINGS_PER_RUN: "30"
+          PLAYWRIGHT_HEADLESS: "true"
+          PLAYWRIGHT_PAGE_TIMEOUT_MS: "30000"
+          # ── Marketplace ───────────────────────────────────────────────────────
+          MARKETPLACE_CITY: toronto
+          MARKETPLACE_SEARCH_QUERY: apartment for rent
+          MARKETPLACE_MIN_PRICE: "1000"
+          MARKETPLACE_DAYS_SINCE_LISTED: "1"
+          MARKETPLACE_MAX_SCROLL_PAGES: "10"
+          MARKETPLACE_MAX_STALE_SCROLLS: "3"
+          MARKETPLACE_MIN_DELAY_SECONDS: "6"
+          MARKETPLACE_MAX_DELAY_SECONDS: "10"
+          MARKETPLACE_MAX_AGE_HOURS: "8"
+          # ── OpenAI ────────────────────────────────────────────────────────────
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          OPENAI_MODEL: gpt-4o-mini
+          OPENAI_MAX_TOKENS: "600"
+          # ── Rental Criteria ───────────────────────────────────────────────────
+          CRITERIA_MAX_RENT_CAD: "1600"
+          CRITERIA_REQUIRE_PET_FRIENDLY: "false"
+          CRITERIA_MIN_SCORE: "12"
+          CRITERIA_MOVE_IN_DATE: "2026-04-01"
+          # ── Telegram ─────────────────────────────────────────────────────────
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          TELEGRAM_SEND_SUMMARY: "true"
+          TELEGRAM_REQUEST_TIMEOUT_SECONDS: "15"
+          # ── Logging ───────────────────────────────────────────────────────────
+          LOG_DIR: logs
+          LOG_LEVEL_FILE: DEBUG
+          LOG_LEVEL_CONSOLE: INFO
         run: python -m rent_finder.main --live
 
       - name: Save updated SQLite database to cache
