@@ -6,8 +6,8 @@ Navigates to each listing URL using an authenticated Playwright browser context
 a 6-level selector fallback chain.
 
 Description selector levels (tried in order, first match wins):
-  Level 1 — PRIMARY:    data-testid structured element
-  Level 2 — SECONDARY:  aria-label region paragraphs
+  Level 1 — PRIMARY:    DOM-walk from the visible "Description" heading span
+  Level 2 — SECONDARY:  aria-label="Listing details" paragraphs
   Level 3 — TERTIARY:   longest span inside role="main"
   Level 4 — QUATERNARY: Open Graph og:description meta tag (often truncated)
   Level 5 — QUINARY:    inner_text of role="main" block (raw visible text)
@@ -16,8 +16,7 @@ Description selector levels (tried in order, first match wins):
 Per-listing behaviour:
   - Login wall detected   → raises CookieExpiredError (aborts entire run)
   - Listing unavailable   → returns (None, "unavailable"), no selectors tried
-  - TimeoutError on goto  → retried once with domcontentloaded; on second fail
-                            returns (None, "none") and continues
+  - TimeoutError on goto  → returns (None, "none") and continues
   - Selector chain fails  → returns (None, "none") and continues
 """
 
@@ -69,10 +68,36 @@ async def _dismiss_modal(page: Page) -> None:
 
 
 async def _scroll_to_trigger_lazy_load(page: Page) -> None:
-    """Scroll halfway down to trigger lazy-loaded content."""
+    """Scroll to the Description section and expand any truncated text.
+
+    Scrolls the 'Description' heading into view (not to the very bottom, which
+    loads unrelated 'Today's picks' recommendation cards that pollute the longest-
+    span tertiary selector).  Falls back to a 60% scroll if the heading is absent.
+
+    After scrolling, clicks the 'See more' button (if present) to expand the
+    truncated description text before any selector runs.
+    """
     try:
-        await page.evaluate("window.scrollTo(0, document.body.scrollHeight / 2)")
-        await asyncio.sleep(1.5)
+        await page.evaluate(
+            """() => {
+                const spans = [...document.querySelectorAll("span")];
+                const descSpan = spans.find(s => s.textContent.trim() === "Description");
+                if (descSpan) {
+                    descSpan.scrollIntoView({behavior: "instant", block: "center"});
+                } else {
+                    window.scrollTo(0, document.body.scrollHeight * 0.6);
+                }
+            }"""
+        )
+        await asyncio.sleep(2.0)
+    except Exception:
+        pass
+    # Expand the truncated description if a "See more" button is visible
+    try:
+        see_more = await page.query_selector('span:text("See more")')
+        if see_more:
+            await see_more.click()
+            await asyncio.sleep(1.0)
     except Exception:
         pass
 
@@ -82,16 +107,37 @@ async def _scroll_to_trigger_lazy_load(page: Page) -> None:
 # ---------------------------------------------------------------------------
 
 async def _try_primary(page: Page) -> str | None:
-    """Level 1: Structured data-testid element."""
+    """Level 1: DOM-walk from the visible 'Description' heading span.
+
+    Facebook Marketplace listing pages render the description as a text block
+    directly below a 'Description' subheading.  Walking up the DOM from that
+    heading span (up to 12 levels) locates the containing section div, from
+    which the description text is cleanly extracted and the 'See more'/'See less'
+    suffix is stripped.
+    """
     try:
-        el = await page.wait_for_selector(
-            'div[data-testid="marketplace-listing-item-description"]',
-            timeout=8000,
+        text = await page.evaluate(
+            r"""() => {
+                const spans = [...document.querySelectorAll("span")];
+                const descSpan = spans.find(s => s.textContent.trim() === "Description");
+                if (!descSpan) return null;
+                let el = descSpan;
+                for (let i = 0; i < 12; i++) {
+                    el = el.parentElement;
+                    if (!el) break;
+                    const raw = (el.innerText ?? "").trim();
+                    if (raw.startsWith("Description") && raw.length > 50) {
+                        return raw
+                            .replace(/^Description\n?/, "")
+                            .replace(/\nSee (more|less)$/, "")
+                            .trim();
+                    }
+                }
+                return null;
+            }"""
         )
-        if el:
-            text = await el.inner_text()
-            if text and len(text.strip()) >= _MIN_DESC_CHARS:
-                return text.strip()
+        if text and len(str(text).strip()) >= _MIN_DESC_CHARS:
+            return str(text).strip()
     except Exception:
         pass
     return None
@@ -205,16 +251,13 @@ async def scrape_listing(
     Raises:
         CookieExpiredError: If a login wall is detected mid-run.
     """
-    # Attempt 1: networkidle (richer content)
+    # Use domcontentloaded — Facebook has continuous background XHR that prevents
+    # networkidle from ever resolving, wasting 30 seconds per listing.
     try:
-        await page.goto(url, wait_until="networkidle", timeout=timeout_ms)
+        await page.goto(url, wait_until="domcontentloaded", timeout=timeout_ms)
     except PWTimeoutError:
-        log.warning("page_load_timeout_retry", url=url)
-        try:
-            await page.goto(url, wait_until="domcontentloaded", timeout=timeout_ms)
-        except PWTimeoutError:
-            log.warning("page_load_failed", url=url)
-            return None, "none"
+        log.warning("page_load_failed", url=url)
+        return None, "none"
     except Exception as exc:
         log.warning("page_load_error", url=url, error=str(exc))
         return None, "none"

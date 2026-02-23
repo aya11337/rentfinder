@@ -14,6 +14,7 @@ import pytest
 
 from rent_finder.scraper.marketplace import (
     _extract_listing_id,
+    _parse_hours_ago,
     _parse_price_raw,
     _extract_card_data,
     _scroll_and_collect,
@@ -86,6 +87,37 @@ class TestParsePriceRaw:
         raw, cents = _parse_price_raw("CA$900/month")
         assert raw == "CA$900"
         assert cents == 90000
+
+
+# ---------------------------------------------------------------------------
+# _parse_hours_ago
+# ---------------------------------------------------------------------------
+
+
+class TestParseHoursAgo:
+    def test_just_now(self):
+        assert _parse_hours_ago("just now") == 0.0
+
+    def test_minutes_ago(self):
+        result = _parse_hours_ago("5 minutes ago")
+        assert result is not None
+        assert abs(result - 5 / 60) < 0.001
+
+    def test_hours_ago(self):
+        assert _parse_hours_ago("3 hours ago") == 3.0
+
+    def test_short_h_form(self):
+        assert _parse_hours_ago("2h") == 2.0
+
+    def test_yesterday(self):
+        assert _parse_hours_ago("Yesterday at 3:00 PM") == 24.0
+
+    def test_no_match_returns_none(self):
+        assert _parse_hours_ago("Bright 1BR in Leslieville") is None
+
+    def test_days_ago(self):
+        result = _parse_hours_ago("2 days ago")
+        assert result == 48.0
 
 
 # ---------------------------------------------------------------------------
@@ -203,7 +235,7 @@ def _make_rate_limiter() -> RateLimiter:
     return rl
 
 
-def _make_card_result(listing_id: str) -> dict[str, Any]:
+def _make_card_result(listing_id: str, hours_ago: float | None = None) -> dict[str, Any]:
     """Build a fake _extract_card_data return value for a given listing_id."""
     return {
         "listing_id": listing_id,
@@ -213,6 +245,7 @@ def _make_card_result(listing_id: str) -> dict[str, Any]:
         "price_cents": 150000,
         "location_raw": "Toronto",
         "image_url": None,
+        "hours_ago": hours_ago,
     }
 
 
@@ -296,6 +329,7 @@ class TestScrollAndCollect:
                 max_listings=3,
                 max_scroll_pages=10,
                 max_stale_scrolls=3,
+                max_age_hours=0,
                 rate_limiter=rl,
                 min_delay_s=0,
                 max_delay_s=0,
@@ -321,6 +355,7 @@ class TestScrollAndCollect:
                 max_listings=0,
                 max_scroll_pages=10,
                 max_stale_scrolls=2,
+                max_age_hours=0,
                 rate_limiter=rl,
                 min_delay_s=0,
                 max_delay_s=0,
@@ -354,6 +389,7 @@ class TestScrollAndCollect:
                 max_listings=0,
                 max_scroll_pages=5,
                 max_stale_scrolls=3,
+                max_age_hours=0,
                 rate_limiter=rl,
                 min_delay_s=0,
                 max_delay_s=0,
@@ -382,6 +418,7 @@ class TestScrollAndCollect:
                 max_listings=0,
                 max_scroll_pages=5,
                 max_stale_scrolls=2,
+                max_age_hours=0,
                 rate_limiter=rl,
                 min_delay_s=0,
                 max_delay_s=0,
@@ -391,6 +428,44 @@ class TestScrollAndCollect:
         assert "bbb" in listing_ids
         assert "ccc" in listing_ids
         assert len(results) == 3  # No duplicates
+
+    @pytest.mark.asyncio
+    async def test_age_filter_skips_old_listings(self):
+        """Cards older than max_age_hours are skipped; fresh cards are kept."""
+        # Build extractor: "old_*" cards have hours_ago=20 (too old for 8h limit)
+        async def age_aware_extract(card: Any) -> dict[str, Any] | None:
+            lid = card.listing_id
+            hours = 20.0 if lid.startswith("old_") else 1.0
+            return _make_card_result(lid, hours_ago=hours)
+
+        listing_ids = ["new_aaa", "new_bbb", "old_ccc", "old_ddd", "old_eee",
+                       "old_fff", "old_ggg"]  # 5 consecutive old → age stop
+        page = _make_page_for_scroll(
+            [listing_ids] * 3,
+            heights=[1000, 2000, 3000],
+        )
+        rl = _make_rate_limiter()
+
+        with patch(
+            "rent_finder.scraper.marketplace._extract_card_data",
+            side_effect=age_aware_extract,
+        ):
+            results = await _scroll_and_collect(
+                page,
+                max_listings=0,
+                max_scroll_pages=10,
+                max_stale_scrolls=3,
+                max_age_hours=8,
+                rate_limiter=rl,
+                min_delay_s=0,
+                max_delay_s=0,
+            )
+
+        result_ids = {r.listing_id for r in results}
+        assert "new_aaa" in result_ids
+        assert "new_bbb" in result_ids
+        # Old listings should be excluded
+        assert "old_ccc" not in result_ids
 
 
 # ---------------------------------------------------------------------------
@@ -461,6 +536,7 @@ class TestScrapeMarketplace:
                 max_listings=0,
                 max_scroll_pages=5,
                 max_stale_scrolls=2,
+                max_age_hours=0,
                 min_delay_s=0,
                 max_delay_s=0,
             )
@@ -498,6 +574,7 @@ class TestScrapeMarketplace:
                     max_listings=0,
                     max_scroll_pages=5,
                     max_stale_scrolls=2,
+                    max_age_hours=0,
                     min_delay_s=0,
                     max_delay_s=0,
                 )
@@ -530,6 +607,7 @@ class TestScrapeMarketplace:
                 max_listings=0,
                 max_scroll_pages=5,
                 max_stale_scrolls=2,
+                max_age_hours=0,
                 min_delay_s=0,
                 max_delay_s=0,
             )

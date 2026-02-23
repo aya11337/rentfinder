@@ -50,18 +50,14 @@ def _make_page(
     page = AsyncMock()
     page.url = url
 
-    # wait_for_selector: primary level uses data-testid
+    # wait_for_selector: secondary level uses aria-label="Listing details"
     async def _wait_for_selector(selector: str, **kwargs):
         from playwright.async_api import TimeoutError as PWTimeout
-        if "data-testid" in selector and primary_text:
-            el = AsyncMock()
-            el.inner_text = AsyncMock(return_value=primary_text)
-            return el
         raise PWTimeout("selector not found")
 
     page.wait_for_selector = _wait_for_selector
 
-    # query_selector: unavailability check and modal dismiss
+    # query_selector: unavailability check, modal dismiss, and "See more" button
     async def _query_selector(selector: str, **kwargs):
         if "no longer available" in selector.lower() or "This listing" in selector:
             return unavailable_el
@@ -82,10 +78,15 @@ def _make_page(
 
     page.query_selector_all = _query_selector_all
 
-    # evaluate: og:description and scroll
+    # evaluate: DOM-walk primary selector, og:description, and scroll helpers
     async def _evaluate(script: str, **kwargs):
-        if "og:description" in script and og_meta:
-            return og_meta
+        if "og:description" in script:
+            return og_meta if og_meta else None
+        if "scrollIntoView" in script or "scrollTo" in script:
+            return None  # scroll helpers return no value
+        if "Description" in script and primary_text:
+            # DOM-walk primary selector — return the pre-cleaned description text
+            return primary_text
         return None
 
     page.evaluate = _evaluate

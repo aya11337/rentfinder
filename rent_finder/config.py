@@ -42,6 +42,12 @@ class Settings(BaseSettings):
     # Separate delays for browse scroll (longer = lower ban risk)
     marketplace_min_delay_seconds: float = Field(default=6.0, ge=2.0)
     marketplace_max_delay_seconds: float = Field(default=10.0, ge=2.0)
+    # Only collect listings posted within this many hours (0 = no age filter)
+    marketplace_max_age_hours: float = Field(default=8.0, ge=0.0)
+    # Price range for the browse URL filter (cents not needed — FB uses whole dollars)
+    marketplace_min_price: int = Field(default=1000, ge=0)
+    # Only show listings posted within N days (1 = last 24 h); 0 = no filter
+    marketplace_days_since_listed: int = Field(default=1, ge=0)
 
     # ── OpenAI ────────────────────────────────────────────────────────────────
     openai_api_key: str = Field(..., min_length=10)  # Required
@@ -96,16 +102,22 @@ class Settings(BaseSettings):
         Build the Facebook Marketplace browse URL from individual config values.
 
         Uses criteria_max_rent_cad so changing the price cap in .env
-        automatically applies to the browse filter too.
+        automatically applies to the browse filter too.  minPrice and
+        daysSinceListed are applied at the URL level to pre-filter irrelevant
+        listings before any scraping occurs.
         """
         from urllib.parse import urlencode
 
         base = f"https://www.facebook.com/marketplace/{self.marketplace_city}/search/"
-        params = {
+        params: dict[str, str | int] = {
             "query": self.marketplace_search_query,
+            "minPrice": self.marketplace_min_price,
             "maxPrice": self.criteria_max_rent_cad,
             "sortBy": "creation_time_descend",
+            "exact": "false",
         }
+        if self.marketplace_days_since_listed > 0:
+            params["daysSinceListed"] = self.marketplace_days_since_listed
         return base + "?" + urlencode(params)
 
     def telegram_configured(self) -> bool:

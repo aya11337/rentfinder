@@ -170,6 +170,7 @@ def run_pipeline(
                     max_listings=settings.scraper_max_listings_per_run,
                     max_scroll_pages=settings.marketplace_max_scroll_pages,
                     max_stale_scrolls=settings.marketplace_max_stale_scrolls,
+                    max_age_hours=settings.marketplace_max_age_hours,
                     min_delay_s=settings.marketplace_min_delay_seconds,
                     max_delay_s=settings.marketplace_max_delay_seconds,
                 )

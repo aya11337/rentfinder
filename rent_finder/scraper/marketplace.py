@@ -8,6 +8,13 @@ each card's href, aria-label, span text, and first image.
 Uses the same create_context() from browser.py and RateLimiter from
 rate_limiter.py as the per-listing Playwright scraper.
 
+Age filtering:
+    When max_age_hours > 0, cards whose relative timestamp indicates they
+    were posted more than max_age_hours ago are skipped. Cards with no
+    detectable timestamp are always included (conservative). Since the browse
+    URL uses sortBy=creation_time_descend, once we see _AGE_STOP_THRESHOLD
+    consecutive cards that are all too old we stop scrolling entirely.
+
 Public API:
     scrape_marketplace(...) -> list[RawListing]
 """
@@ -34,10 +41,63 @@ _LISTING_ID_RE = re.compile(r"/marketplace/item/(\d+)/")
 _PRICE_RE = re.compile(r"CA\$[\d,]+|\$[\d,]+", re.IGNORECASE)
 _CARD_SELECTOR = 'div[role="main"] a[href*="/marketplace/item/"]'
 
+# Stop scrolling after this many consecutive cards all exceeding max_age_hours
+_AGE_STOP_THRESHOLD = 5
+
+# Relative-time patterns Facebook shows on browse cards (checked in order)
+_TIME_RE_PATTERNS: list[tuple[re.Pattern[str], float]] = [
+    # "just now", "a moment ago" → 0 hours
+    (re.compile(r"\bjust now\b|\bmoment ago\b", re.IGNORECASE), 0.0),
+    # "X minute(s) ago" → X/60 hours
+    (re.compile(r"\b(\d+)\s*min(?:ute)?s?\s+ago\b", re.IGNORECASE), -1.0),
+    # "X hour(s) ago" or "Xh" short form
+    (re.compile(r"\b(\d+)\s*h(?:ou?r?)?s?\s+ago\b", re.IGNORECASE), -2.0),
+    (re.compile(r"\b(\d+)\s*h\b", re.IGNORECASE), -2.0),
+    # "yesterday" → 24 hours (conservative)
+    (re.compile(r"\byesterday\b", re.IGNORECASE), 24.0),
+    # "X day(s) ago"
+    (re.compile(r"\b(\d+)\s*days?\s+ago\b", re.IGNORECASE), -3.0),
+]
+
+# Sentinel values (negative) signal which capture group to use
+_SENTINEL_MINUTES = -1.0
+_SENTINEL_HOURS = -2.0
+_SENTINEL_DAYS = -3.0
+
 
 # ---------------------------------------------------------------------------
 # Private helpers
 # ---------------------------------------------------------------------------
+
+
+def _parse_hours_ago(text: str) -> float | None:
+    """
+    Parse a relative-time string and return elapsed hours as a float.
+
+    Returns None if no recognisable pattern is found.
+
+    Examples:
+        "just now"       → 0.0
+        "5 minutes ago"  → 0.083
+        "3 hours ago"    → 3.0
+        "2h"             → 2.0
+        "yesterday"      → 24.0
+        "random text"    → None
+    """
+    for pattern, sentinel in _TIME_RE_PATTERNS:
+        m = pattern.search(text)
+        if m is None:
+            continue
+        if sentinel == 0.0:
+            return 0.0
+        if sentinel == _SENTINEL_MINUTES:
+            return int(m.group(1)) / 60.0
+        if sentinel == _SENTINEL_HOURS:
+            return float(m.group(1))
+        if sentinel == _SENTINEL_DAYS:
+            return float(m.group(1)) * 24.0
+        return sentinel  # fixed value like 24.0 for "yesterday"
+    return None
 
 
 def _extract_listing_id(href: str) -> str | None:
@@ -77,8 +137,8 @@ async def _extract_card_data(card: ElementHandle) -> dict[str, Any] | None:
     Extract listing data from a single card element.
 
     Returns a dict with listing_id, url, title, price_raw, price_cents,
-    location_raw, and image_url. Returns None if listing_id cannot be extracted
-    (invalid or missing href).
+    location_raw, image_url, and hours_ago (float | None).
+    Returns None if listing_id cannot be extracted (invalid or missing href).
     """
     try:
         href: str = await card.get_attribute("href") or ""
@@ -94,6 +154,7 @@ async def _extract_card_data(card: ElementHandle) -> dict[str, Any] | None:
         price_cents: int | None = None
         location_raw: str | None = None
         image_url: str | None = None
+        hours_ago: float | None = None
 
         # Fast path: aria-label often contains "TITLE, CA$PRICE" or similar
         aria = await card.get_attribute("aria-label") or ""
@@ -140,6 +201,13 @@ async def _extract_card_data(card: ElementHandle) -> dict[str, Any] | None:
             if len(candidate) < 60 and not re.search(_PRICE_RE, candidate):
                 location_raw = candidate
 
+        # Timestamp heuristic: look for relative time in any span
+        for t in span_texts:
+            parsed = _parse_hours_ago(t)
+            if parsed is not None:
+                hours_ago = parsed
+                break
+
         # First <img src> in the card
         img = await card.query_selector("img")
         if img:
@@ -155,6 +223,7 @@ async def _extract_card_data(card: ElementHandle) -> dict[str, Any] | None:
             "price_cents": price_cents,
             "location_raw": location_raw,
             "image_url": image_url,
+            "hours_ago": hours_ago,
         }
 
     except Exception as exc:
@@ -168,6 +237,7 @@ async def _scroll_and_collect(
     max_listings: int,
     max_scroll_pages: int,
     max_stale_scrolls: int,
+    max_age_hours: float,
     rate_limiter: RateLimiter,
     min_delay_s: float,
     max_delay_s: float,
@@ -179,11 +249,14 @@ async def _scroll_and_collect(
     - max_listings reached (if > 0)
     - max_stale_scrolls consecutive rounds with no height change AND no new cards
     - max_scroll_pages total scroll iterations reached
+    - max_age_hours > 0 and _AGE_STOP_THRESHOLD consecutive cards all exceed the age limit
+      (safe to stop early because the browse page is sorted newest-first)
     """
     collected: dict[str, RawListing] = {}  # listing_id → RawListing, dedup
     stale_count = 0
     scroll_count = 0
     prev_height = 0
+    consecutive_old = 0  # cards exceeding max_age_hours in a row
 
     while scroll_count < max_scroll_pages:
         # Stop if we've hit the listing cap
@@ -203,6 +276,28 @@ async def _scroll_and_collect(
             data = await _extract_card_data(card)
             if data is None:
                 continue
+
+            # Age filter: skip cards posted too long ago
+            if max_age_hours > 0 and data["hours_ago"] is not None:
+                if data["hours_ago"] > max_age_hours:
+                    consecutive_old += 1
+                    log.debug(
+                        "marketplace_card_too_old",
+                        listing_id=data["listing_id"],
+                        hours_ago=round(data["hours_ago"], 1),
+                        max_age_hours=max_age_hours,
+                    )
+                    if consecutive_old >= _AGE_STOP_THRESHOLD:
+                        log.info(
+                            "marketplace_age_stop",
+                            consecutive_old=consecutive_old,
+                            total=len(collected),
+                        )
+                        return list(collected.values())
+                    continue
+                else:
+                    consecutive_old = 0  # Reset on a fresh card
+
             lid = data["listing_id"]
             if lid not in collected:
                 collected[lid] = RawListing(
@@ -285,6 +380,7 @@ async def scrape_marketplace(
     max_listings: int,
     max_scroll_pages: int,
     max_stale_scrolls: int,
+    max_age_hours: float,
     min_delay_s: float,
     max_delay_s: float,
 ) -> list[RawListing]:
@@ -293,6 +389,10 @@ async def scrape_marketplace(
 
     Uses create_context() for cookie injection and session validation.
     Raises CookieExpiredError if the session has expired.
+
+    Args:
+        max_age_hours: Only include cards posted within this many hours.
+                       0 disables the age filter (collect all cards).
 
     Returns a list of RawListing objects (no description — those are scraped
     in the subsequent per-listing Playwright pass).
@@ -334,6 +434,7 @@ async def scrape_marketplace(
                 max_listings=max_listings,
                 max_scroll_pages=max_scroll_pages,
                 max_stale_scrolls=max_stale_scrolls,
+                max_age_hours=max_age_hours,
                 rate_limiter=rate_limiter,
                 min_delay_s=min_delay_s,
                 max_delay_s=max_delay_s,

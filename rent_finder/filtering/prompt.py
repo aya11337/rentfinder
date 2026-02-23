@@ -9,9 +9,9 @@ Criteria used (updated from original plan):
   Rent cap      : $1,600 / month inclusive of utilities
   Unit type     : Entire self-contained unit — no shared bathroom or kitchen
   Basement      : Only acceptable if well-lit windows confirmed or walkout
-  Parking       : 1 car spot is needed — hard reject if explicitly unavailable
+  Parking       : 1 car spot needed — hard reject only if explicitly denied ("no parking")
   Furnished     : Priority but not mandatory
-  Move-in date  : April 1, 2026 — reject if explicitly unavailable before May
+  Move-in date  : April 1, 2026 — reject only if explicitly unavailable until after May 1
   Lease         : Minimum 6 months; 12 months preferred
 """
 
@@ -63,6 +63,8 @@ April 1, 2026. Budget: up to $1,600/month CAD inclusive of all utilities.
      "street parking only", or similar clear denial.
    - If parking is not mentioned, do NOT reject — score parking as 0.
    - If parking is confirmed (dedicated spot, garage, driveway), score parking high.
+   - The only valid rejection reason for this rule is "parking_explicitly_denied".
+     Do NOT use "no_parking_confirmed" — that is NOT a rejection reason.
 
 5. LEASE LENGTH: Minimum 6-month lease required.
    - REJECT if listing says "short-term only", "month-to-month only", or duration
@@ -70,8 +72,12 @@ April 1, 2026. Budget: up to $1,600/month CAD inclusive of all utilities.
    - If lease duration is not mentioned, do NOT reject.
 
 6. MOVE-IN AVAILABILITY: Searcher needs the unit by April 1, 2026.
-   - REJECT if listing explicitly states availability date is after May 1, 2026.
-   - If move-in date is not mentioned or is on/before April 1, do NOT reject.
+   - REJECT only if the listing explicitly states availability date is after May 1, 2026.
+   - If move-in date is not mentioned, do NOT reject.
+   - If the listing says available "now", "immediately", or gives a past date (e.g.,
+     "available January 1st" and today is February 2026), the unit is currently
+     available — do NOT reject. Score move_in_timing as 3.
+   - The only valid rejection reason for this rule is "not_available_by_may".
 
 7. LEGITIMACY: REJECT with scam_flag=true if:
    - Price is below $700/month for any unit type in Toronto — suspiciously low.
@@ -121,8 +127,9 @@ PARKING (0-3):
   3 = Dedicated parking spot, garage, or driveway access explicitly confirmed.
   2 = Parking available (paid or permit) mentioned.
   1 = Parking situation unclear but not denied.
-  0 = No parking mentioned (do NOT reject; see hard requirement #4).
-  NOTE: Only REJECT if explicitly denied. Absence of mention → score 0, not reject.
+  0 = No parking mentioned — score 0, do NOT reject (see hard requirement #4).
+  IMPORTANT: Only REJECT if parking is explicitly denied. No mention = score 0, not reject.
+  Rejection reason when applicable: "parking_explicitly_denied" only.
 
 FURNISHED (0-3):
   3 = Fully furnished (bed, couch, appliances, kitchenware stated).
@@ -162,7 +169,9 @@ RULES:
 - decision must be exactly "PASS" or "REJECT" (uppercase, no other values).
 - rejection_reasons is a list of short strings naming each hard requirement failed.
   Example values: "price_exceeds_cap", "shared_bathroom", "dark_basement",
-  "no_parking_confirmed", "short_term_only", "unavailable_before_april", "scam_suspected".
+  "parking_explicitly_denied", "short_term_only", "not_available_by_may", "scam_suspected".
+  NOTE: "no_parking_confirmed" and "unavailable_before_april" are INVALID reason names —
+  never use them.
 - scam_flag is a boolean (true/false, not a string).
 - total_score is the integer sum of score_breakdown values.
 - reasoning must be 1-4 sentences. No markdown formatting inside reasoning.
