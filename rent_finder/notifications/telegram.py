@@ -54,7 +54,7 @@ def _send_text(
     Handles retry for network errors and rate limits.
     Does NOT truncate — the caller must ensure the message fits.
     """
-    url = _TELEGRAM_API.format(token=bot_token)
+    url = _TELEGRAM_API.format(token="".join(bot_token.split()))
     payload = {
         "chat_id": chat_id,
         "text": text,
@@ -267,7 +267,7 @@ def send_text_alert(
     No parse_mode — text is sent as plain text to avoid escape issues.
     Always sends regardless of dry_run (it's an operational alert).
     """
-    url = _TELEGRAM_API.format(token=bot_token)
+    url = _TELEGRAM_API.format(token="".join(bot_token.split()))
     try:
         with httpx.Client(timeout=timeout_s) as client:
             resp = client.post(url, json={"chat_id": chat_id, "text": text})

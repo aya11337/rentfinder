@@ -78,8 +78,8 @@ class Settings(BaseSettings):
     @field_validator("openai_api_key", "telegram_bot_token", "telegram_chat_id")
     @classmethod
     def strip_secret(cls, v: str) -> str:
-        """Strip accidental whitespace/newlines from secrets read from env or .env file."""
-        return v.strip()
+        """Remove all whitespace from secrets — handles newlines anywhere in the string."""
+        return "".join(v.split())
 
     @field_validator("scraper_max_delay_seconds")
     @classmethod
