@@ -26,6 +26,7 @@ def start_scheduler(
     json_path: str,
     dry_run: bool,
     headed: bool,
+    live: bool = False,
 ) -> None:
     """
     Start the APScheduler blocking scheduler.
@@ -48,6 +49,7 @@ def start_scheduler(
             "scheduled_run_start",
             run_id=run_id,
             cron=settings.schedule_cron,
+            live=live,
         )
         exit_code = run_pipeline(
             settings=settings,
@@ -55,6 +57,7 @@ def start_scheduler(
             dry_run=dry_run,
             headed=headed,
             run_id=run_id,
+            live=live,
         )
         log.info("scheduled_run_complete", run_id=run_id, exit_code=exit_code)
 
@@ -79,6 +82,7 @@ def start_scheduler(
         cron=settings.schedule_cron,
         timezone=settings.schedule_timezone,
         dry_run=dry_run,
+        live=live,
     )
 
     try:

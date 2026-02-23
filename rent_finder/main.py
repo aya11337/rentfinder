@@ -44,6 +44,7 @@ from rent_finder.notifications.telegram import (
 )
 from rent_finder.scraper.browser import CookieExpiredError
 from rent_finder.scraper.facebook import scrape_all
+from rent_finder.scraper.marketplace import scrape_marketplace
 from rent_finder.storage import repository as repo
 from rent_finder.storage.database import get_connection, init_db
 from rent_finder.utils.logging_config import configure_logging, get_logger
@@ -124,6 +125,7 @@ def run_pipeline(
     dry_run: bool,
     headed: bool,
     run_id: str,
+    live: bool = False,
 ) -> int:
     """
     Execute the full rent-finder pipeline.
@@ -148,22 +150,71 @@ def run_pipeline(
 
     if not dry_run:
         try:
-            repo.insert_run_log(conn, run_id, json_path, dry_run)
+            source_path = "live:marketplace" if live else json_path
+            repo.insert_run_log(conn, run_id, source_path, dry_run)
         except Exception as exc:
             log.warning("run_log_insert_failed", error=str(exc))
 
-    # ── 2. Parse JSON ─────────────────────────────────────────────────────────
-    try:
-        all_listings: list[RawListing] = parse_listings(json_path)
-    except FileNotFoundError:
-        log.critical("json_file_not_found", path=json_path)
-        return 1
-    except Exception as exc:
-        log.critical("json_parse_failed", error=str(exc))
-        return 1
+    # ── 2. Ingest listings (live scrape OR JSON file) ─────────────────────────
+    if live:
+        browse_url = settings.marketplace_browse_url()
+        log.info("marketplace_live_mode", url=browse_url)
+        try:
+            headless = not headed and settings.playwright_headless
+            all_listings = asyncio.run(
+                scrape_marketplace(
+                    browse_url=browse_url,
+                    cookies_path=settings.facebook_cookies_path,
+                    headless=headless,
+                    page_timeout_ms=settings.playwright_page_timeout_ms,
+                    max_listings=settings.scraper_max_listings_per_run,
+                    max_scroll_pages=settings.marketplace_max_scroll_pages,
+                    max_stale_scrolls=settings.marketplace_max_stale_scrolls,
+                    min_delay_s=settings.marketplace_min_delay_seconds,
+                    max_delay_s=settings.marketplace_max_delay_seconds,
+                )
+            )
+        except CookieExpiredError as exc:
+            log.error("cookie_expired_browse", error=str(exc))
+            if settings.telegram_configured():
+                send_text_alert(
+                    "⚠️ rent-finder: Facebook cookies have expired. "
+                    "Please export fresh cookies and replace data/cookies.json.",
+                    bot_token=settings.telegram_bot_token,
+                    chat_id=settings.telegram_chat_id,
+                )
+            if not dry_run:
+                try:
+                    repo.insert_cookie_health(
+                        conn,
+                        is_valid=False,
+                        failure_reason="login_redirect_browse",
+                        run_id=run_id,
+                    )
+                    repo.update_run_log(conn, run_id, exit_status="cookie_expired")
+                except Exception:
+                    pass
+            conn.close()
+            return 2
+        except Exception as exc:
+            log.critical("marketplace_scrape_failed", error=str(exc))
+            conn.close()
+            return 1
 
-    total_rows = len(all_listings)
-    log.info("json_parsed", total_rows=total_rows)
+        total_rows = len(all_listings)
+        log.info("marketplace_scraped", total_rows=total_rows)
+    else:
+        try:
+            all_listings = parse_listings(json_path)
+        except FileNotFoundError:
+            log.critical("json_file_not_found", path=json_path)
+            return 1
+        except Exception as exc:
+            log.critical("json_parse_failed", error=str(exc))
+            return 1
+
+        total_rows = len(all_listings)
+        log.info("json_parsed", total_rows=total_rows)
 
     # ── 3. Dedup ──────────────────────────────────────────────────────────────
     seen_ids = repo.get_seen_listing_ids(conn)
@@ -574,6 +625,15 @@ def run_pipeline(
     help="Launch Playwright in visible (headed) mode for debugging selector issues.",
 )
 @click.option(
+    "--live",
+    is_flag=True,
+    default=False,
+    help=(
+        "Scrape listings directly from Facebook Marketplace instead of reading "
+        "a JSON file. Uses MARKETPLACE_CITY and MARKETPLACE_SEARCH_QUERY settings."
+    ),
+)
+@click.option(
     "--once",
     is_flag=True,
     default=False,
@@ -589,6 +649,7 @@ def main(
     json_path: str | None,
     dry_run: bool,
     headed: bool,
+    live: bool,
     once: bool,
     daemon: bool,
 ) -> None:
@@ -611,10 +672,13 @@ def main(
         console_level=settings.log_level_console,
     )
 
-    log.info("rent_finder_start", dry_run=dry_run, headed=headed, daemon=daemon)
+    log.info("rent_finder_start", dry_run=dry_run, headed=headed, daemon=daemon, live=live)
     log.debug("config_loaded", **settings.masked_summary())
 
     resolved_path = json_path or settings.json_input_path
+
+    if live and json_path:
+        log.warning("live_and_json_both_set_ignoring_json", json_path=json_path)
 
     if daemon and not once:
         from rent_finder.scheduler import start_scheduler
@@ -623,6 +687,7 @@ def main(
             json_path=resolved_path,
             dry_run=dry_run,
             headed=headed,
+            live=live,
         )
         return
 
@@ -633,6 +698,7 @@ def main(
         dry_run=dry_run,
         headed=headed,
         run_id=run_id,
+        live=live,
     )
     sys.exit(exit_code)
 

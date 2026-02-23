@@ -34,6 +34,15 @@ class Settings(BaseSettings):
     playwright_headless: bool = Field(default=True)
     playwright_page_timeout_ms: int = Field(default=30000, ge=5000)
 
+    # ── Marketplace live scraper ──────────────────────────────────────────────
+    marketplace_city: str = Field(default="toronto")
+    marketplace_search_query: str = Field(default="apartment for rent")
+    marketplace_max_scroll_pages: int = Field(default=10, ge=1)
+    marketplace_max_stale_scrolls: int = Field(default=3, ge=1)
+    # Separate delays for browse scroll (longer = lower ban risk)
+    marketplace_min_delay_seconds: float = Field(default=6.0, ge=2.0)
+    marketplace_max_delay_seconds: float = Field(default=10.0, ge=2.0)
+
     # ── OpenAI ────────────────────────────────────────────────────────────────
     openai_api_key: str = Field(..., min_length=10)  # Required
     openai_model: str = Field(default="gpt-4o-mini")
@@ -81,6 +90,23 @@ class Settings(BaseSettings):
         if upper not in valid:
             raise ValueError(f"Log level must be one of {valid}, got {v!r}")
         return upper
+
+    def marketplace_browse_url(self) -> str:
+        """
+        Build the Facebook Marketplace browse URL from individual config values.
+
+        Uses criteria_max_rent_cad so changing the price cap in .env
+        automatically applies to the browse filter too.
+        """
+        from urllib.parse import urlencode
+
+        base = f"https://www.facebook.com/marketplace/{self.marketplace_city}/search/"
+        params = {
+            "query": self.marketplace_search_query,
+            "maxPrice": self.criteria_max_rent_cad,
+            "sortBy": "creation_time_descend",
+        }
+        return base + "?" + urlencode(params)
 
     def telegram_configured(self) -> bool:
         """Return True if Telegram credentials are present and non-placeholder."""
