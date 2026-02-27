@@ -1,10 +1,10 @@
 name: rent-finder
 
 on:
-  schedule:
+ # schedule:
     # Every 4 hours UTC (12:00 AM, 4:00 AM, 8:00 AM, 12:00 PM, 4:00 PM, 8:00 PM UTC)
     # Toronto (EST/EDT): 7 PM, 11 PM, 3 AM, 7 AM, 11 AM, 3 PM
-    - cron: '0 */4 * * *'
+  #  - cron: '0 */4 * * *'
   workflow_dispatch:
     # Manual trigger button in GitHub Actions UI — useful for testing
 
